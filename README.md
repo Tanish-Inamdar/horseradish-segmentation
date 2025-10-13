@@ -4,17 +4,17 @@ This project is all about using deep learning to automatically identify horserad
 
 The model uses a powerful pre-trained DINOv3 backbone and a custom segmentation head built with PyTorch.
 
-What's Inside?
+Files:
 
-    training.py: The main script for training the model. It loads the data, kicks off the training loop, and saves the best model checkpoints.
+training.py: The main script for training the model. It loads the data, kicks off the training loop, and saves the best model checkpoints.
 
-    evaluation.py: Used to check how well the model is doing. It calculates metrics like the Dice score and Mean IoU on the validation set.
+evaluation.py: Used to check how well the model is doing. It calculates metrics like the Dice score and Mean IoU on the validation set.
 
-    inference.py: A script to run a single image through the trained model and see the segmentation overlay. Perfect for quick tests and demos.
+inference.py: A script to run a single image through the trained model and see the segmentation overlay. Perfect for quick tests and demos.
 
-    segmentationDataset.py: A custom PyTorch Dataset class to load the horseradish images and their corresponding polygon label files.
+segmentationDataset.py: A custom PyTorch Dataset class to load the horseradish images and their corresponding polygon label files.
 
-    model.py: Defines the DinoV3ForSegmentation neural network architecture.
+model.py: Defines the DinoV3ForSegmentation neural network architecture.
 
 Getting Started on a New Machine 
 
@@ -22,16 +22,10 @@ Here’s how to get this project running on a new computer with an NVIDIA GPU
 
 1. Clone the Repository
 
-First, get the code from GitHub.
-Bash
-
 git clone https://github.com/Tanish-Inamdar/horseradish-segmentation.git
 cd horseradish-segmentation
 
-2. Set Up a Python Environment
-
-It's always a good idea to keep project dependencies separate.
-Bash
+2. Set Up a Python Virtual Environment
 
 # Create a virtual environment
 python -m venv .venv
@@ -39,20 +33,15 @@ python -m venv .venv
 # Activate it
 # On Windows:
 .\.venv\Scripts\activate
+
 # On macOS/Linux:
-# source .venv/bin/activate
+source .venv/bin/activate
 
-3. Install dependecies 
-
-Use the requirements.txt file to install all the necessary Python packages.
-Bash
+3. Install dependecies
 
 pip install -r requirements.txt
 
-4. Make sure to have Pytorch
-
-You need to make sure you have the CUDA-enabled version of PyTorch to use the GPU.
-Bash
+5. Make sure to have Pytorch
 
 # First, uninstall any existing CPU-only version
 pip uninstall torch torchvision torchaudio
@@ -61,13 +50,13 @@ pip uninstall torch torchvision torchaudio
 # (This command is for CUDA 12.1, check the PyTorch website if you need a different one)
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
-5. Download the Dataset
+5. Make sure to have dataset and update it in the DATA_DIR
 
 The dataset isn't stored in Git. You'll need to download it to the lab computer and update the paths in the scripts.
 
-    Copy your horseradish_dataset folder to the new machine.
+Copy your horseradish_dataset folder to the new machine.
 
-    Open training.py and evaluation.py and update the path variables at the top of each file to point to the correct location of your dataset.
+Open training.py and evaluation.py and update the path variables at the top of each file to point to the correct location of your dataset.
 
 How to Run
 
