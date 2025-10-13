@@ -153,30 +153,49 @@ def evaluate() -> Dict[str, float]:
         "val_dice": avg_dice,
     }
 
+CKPT_PATH = os.path.join(CHECKPOINT_DIR, "model_best.pt")
+start_epoch = 1
+global_step = 0
+best_acc = 0.0
+
+if os.path.exists(CKPT_PATH):
+    print("Checkpoint found! Loading model state...")
+    checkpoint = torch.load(CKPT_PATH)
+    
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+    
+    start_epoch = checkpoint['epoch'] + 1
+    global_step = checkpoint['step']
+    
+    print("Evaluating loaded model to get baseline accuracy...")
+    loaded_metrics = evaluate()
+    best_acc = loaded_metrics['val_dice']
+    
+    print(f"Resuming training from epoch {start_epoch} | Best Dice so far: {best_acc*100:.2f}%")
+else:
+    print(" No checkpoint found. Starting training from scratch.")
 
 if __name__ == '__main__':
-    best_acc = 0.0
-    global_step = 0
-
     trackio.init(project="dinov3", config={
-                "epochs": EPOCHS,
-                "learning_rate": LR,
-                "batch_size": BATCH_SIZE
-            })
-    for epoch in range(1, EPOCHS + 1):
+        "epochs": EPOCHS,
+        "learning_rate": LR,
+        "batch_size": BATCH_SIZE
+    })
+    
+    for epoch in range(start_epoch, EPOCHS + 1):
         model.train()
-        model.backbone.eval()  
+        model.backbone.eval()
 
         running_loss = 0.0
-        for i, batch in enumerate(train_loader, start=1):
+        for i, batch in tqdm(enumerate(train_loader, start=1), desc=f"Epoch {epoch}/{EPOCHS}", total=len(train_loader)):
             pixel_values = batch["pixel_values"].to(device, non_blocking=True)
             labels = batch["labels"].to(device, non_blocking=True)
 
             optimizer.zero_grad(set_to_none=True)
             logits = model(pixel_values)
             loss = criterion(logits, labels)
-            # loss.backward()
-            # optimizer.step()
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
@@ -189,43 +208,42 @@ if __name__ == '__main__':
             if global_step % EVAL_EVERY_STEPS == 0:
                 metrics = evaluate()
                 print(
-                    f"[epoch {epoch} | step {global_step}] "
+                    f"\n[epoch {epoch} | step {global_step}] "
                     f"train_loss={running_loss / EVAL_EVERY_STEPS:.4f} "
                     f"val_loss={metrics['val_loss']:.4f} val_dice={metrics['val_dice']*100:.2f}%"
                 )
+                
+                trackio.log({
+                    "epoch": epoch,
+                    "val_dice": metrics['val_dice'],
+                    "train_loss": running_loss / EVAL_EVERY_STEPS,
+                    "val_loss": metrics['val_loss'],
+                    "learning_rate": scheduler.get_last_lr()[0]
+                })
+
                 running_loss = 0.0
 
-                trackio.log(
-                        {
-                            "epoch": epoch,
-                            "val_dice": best_acc,
-                        }
-                    )
-
                 if metrics["val_dice"] > best_acc:
+                    print(f" New best model found! Dice improved from {best_acc*100:.2f}% to {metrics['val_dice']*100:.2f}%. Saving checkpoint...")
                     best_acc = metrics["val_dice"]
-                    ckpt_path = os.path.join(CHECKPOINT_DIR, f"model_best.pt")
-                    torch.save(
-                        {
-                            "model_state_dict": model.state_dict(),
-                            "optimizer_state_dict": optimizer.state_dict(),
-                            "scheduler_state_dict": scheduler.state_dict(),
-                            "config": {
-                                "model_name": MODEL_NAME,
-                                "classes": full_dataset.classes,
-                                "backbone": backbone_config,
-                                "image_processor": image_processor_config,
-                                "freeze_backbone": freeze_backbone,
-                            },
-                            "step": global_step,
-                            "epoch": epoch,
+                    torch.save({
+                        "model_state_dict": model.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "scheduler_state_dict": scheduler.state_dict(),
+                        "config": {
+                            "model_name": MODEL_NAME,
+                            "backbone": backbone_config,
+                            "image_processor": image_processor_config,
+                            "freeze_backbone": freeze_backbone,
                         },
-                        ckpt_path,
-                    )
+                        "step": global_step,
+                        "epoch": epoch,
+                    }, CKPT_PATH)
 
         metrics = evaluate()
         print(
             f"END EPOCH {epoch}: val_loss={metrics['val_loss']:.4f} val_dice={metrics['val_dice']*100:.2f}% "
             f"(best_acc={best_acc*100:.2f}%)"
         )
-        trackio.finish()
+    
+    trackio.finish()
