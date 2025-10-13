@@ -1,4 +1,4 @@
-Horseradish Segmentation Project 
+# Horseradish Segmentation Project 
 
 This project is all about using deep learning to automatically identify horseradish plants and weeds from drone imagery. The goal is to build a segmentation model that can tell the difference between the crop and everything else on a pixel-by-pixel basis.
 
