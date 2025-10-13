@@ -22,8 +22,7 @@ Here’s how to get this project running on a new computer with an NVIDIA GPU.
 
 1. Clone the Repository
 
-git clone https://github.com/Tanish-Inamdar/horseradish-segmentation.git
-cd horseradish-segmentation
+'''git clone https://github.com/Tanish-Inamdar/horseradish-segmentation.git'''
 
 2. Set Up a Python Virtual Environment
 
@@ -37,12 +36,12 @@ Activate it (on Windows):
     
 3. Install Dependencies:
 
->pip install -r requirements.txt
+'''pip install -r requirements.txt'''
+
 
 4. Make Sure to Have PyTorch
 
-# First, uninstall any existing CPU-only version
-pip uninstall torch torchvision torchaudio
+'''pip uninstall torch torchvision torchaudio'''
 
 Then, install the CUDA-enabled version
 (This command is for CUDA 12.1, check the PyTorch website if you need a different one)
@@ -50,15 +49,15 @@ pip install torch torchvision torchaudio --index-url https://download.pytorch.or
 
 5. Make Sure to Have the Dataset and Update DATA_DIR
 
-The dataset isn't stored in Git. You'll need to download it to the lab computer and update the paths in the scripts.
+    The dataset isn't stored in Git. You'll need to download it to the lab computer and update the paths in the scripts.
 
     Copy your horseradish_dataset folder to the new machine.
 
     Open training.py and evaluation.py and update the path variables at the top of each file to point to the correct location of your dataset.
 
-#How to Run
+# How to Run
 
-Make sure your virtual environment is active before running any scripts!
+Make sure your virtual environment is active before running any scripts.
 
 To train the model:
     
