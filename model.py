@@ -52,23 +52,24 @@ class DinoV3ForSegmentation(nn.Module):
         Forward pass of the model.
         """
         # Get outputs from the backbone
-        outputs = self.backbone(pixel_values=pixel_values)
+        outputs = self.backbone(pixel_values=pixel_values, output_hidden_states = True, return_dict = True)
+
+        features_2d = outputs.hidden_states[-1]
+
+        ### FOR VIT MODEL TRAINING ###
+
+        # features_seq = outputs.last_hidden_state
+        # B, N, C = features_seq.shape
         
-        # The output is a sequence of patch embeddings: (Batch, Num_Patches, Channels)
-        features_seq = outputs.last_hidden_state
-        B, N, C = features_seq.shape
+        # features_patches = features_seq[:, 1:, :]
         
-        # N will be 50, so we take all tokens from the 2nd one onwards (index 1).
-        features_patches = features_seq[:, 1:, :]
+        # H = W = int((N - 1) ** 0.5)
         
-        # Now, N-1 = 49, which is 7*7. We can reshape correctly.
-        # We calculate the height and width of the feature map.
-        H = W = int((N - 1) ** 0.5)
+        # # Reshape the sequence of patches into a 2D feature map (B, C, H, W).
+        # features_2d = features_patches.permute(0, 2, 1).reshape(B, C, H, W)
         
-        # Reshape the sequence of patches into a 2D feature map (B, C, H, W).
-        features_2d = features_patches.permute(0, 2, 1).reshape(B, C, H, W)
-        
-        # Pass the correctly shaped 2D feature map to our segmentation head
+        ### FOR VIT MODEL TRAINING ###
+
         segmentation_logits = self.segmentation_head(features_2d)
         
         return segmentation_logits

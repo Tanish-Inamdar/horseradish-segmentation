@@ -18,16 +18,17 @@ from model import DinoV3ForSegmentation
 from segmentationDataset import HorseradishSegmentationDataset
 
 
-data_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset"
-train_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\train"
-val_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
+data_dir = "/home/tanishi2/ag group/dataset"
+train_dir = "/home/tanishi2/ag group/dataset/train"
+val_dir = "/home/tanishi2/ag group/dataset/val"
 
 
 
 
 NUM_CLASSES = 3
 
-MODEL_NAME = "C:\\Users\\tanis\\AG GROUP\\dinov3-convnext-tiny-pretrain-lvd1689m"
+# MODEL_NAME = "C:\\Users\\tanis\\AG GROUP\\dinov3-convnext-tiny-pretrain-lvd1689m"
+MODEL_NAME = "facebook/dinov3-convnext-base-pretrain-lvd1689m"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 image_processor = AutoImageProcessor.from_pretrained(MODEL_NAME)
@@ -41,11 +42,11 @@ val_dataset = HorseradishSegmentationDataset(root_dir=val_dir, processor=image_p
 freeze_backbone = True
 model = DinoV3ForSegmentation(model_name=MODEL_NAME, num_classes=NUM_CLASSES)
 model.to(device)
-BATCH_SIZE = 8
+BATCH_SIZE = 32
 # NUM_WORKERS = min(8, os.cpu_count() or 2)
-NUM_WORKERS = 0
-EPOCHS = 30
-LR = 5e-4
+NUM_WORKERS = 4
+EPOCHS = 50
+LR = 5e-5
 WEIGHT_DECAY = 1e-4
 WARMUP_RATIO = 0.05
 CHECKPOINT_DIR = "./weights"
@@ -164,7 +165,7 @@ if __name__ == '__main__':
         "learning_rate": LR,
         "batch_size": BATCH_SIZE
     })
-    num_total_epochs = 15
+    # num_total_epochs = 50
 
     if os.path.exists(CKPT_PATH):
         print("Checkpoint found! Loading model state...")
@@ -183,7 +184,7 @@ if __name__ == '__main__':
 
 
 
-    for epoch in range(start_epoch, num_total_epochs + 1):
+    for epoch in range(start_epoch, EPOCHS + 1):
         model.train()
         model.backbone.eval()
 
@@ -237,6 +238,7 @@ if __name__ == '__main__':
                         },
                         "step": global_step,
                         "epoch": epoch,
+                        "best_acc": best_acc,
                     }, CKPT_PATH)
 
         metrics = evaluate()
