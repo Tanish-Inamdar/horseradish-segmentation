@@ -22,7 +22,7 @@ Here’s how to get this project running on a new computer with an NVIDIA GPU.
 
 1. Clone the Repository
 
-'''git clone https://github.com/Tanish-Inamdar/horseradish-segmentation.git'''
+```git clone https://github.com/Tanish-Inamdar/horseradish-segmentation.git```
 
 2. Set Up a Python Virtual Environment
 
@@ -36,12 +36,12 @@ Activate it (on Windows):
     
 3. Install Dependencies:
 
-'''pip install -r requirements.txt'''
+```pip install -r requirements.txt```
 
 
 4. Make Sure to Have PyTorch
 
-'''pip uninstall torch torchvision torchaudio'''
+```pip uninstall torch torchvision torchaudio```
 
 Then, install the CUDA-enabled version
 (This command is for CUDA 12.1, check the PyTorch website if you need a different one)
