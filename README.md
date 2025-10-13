@@ -22,30 +22,30 @@ Here’s how to get this project running on a new computer with an NVIDIA GPU.
 
 1. Clone the Repository
 
-```git clone https://github.com/Tanish-Inamdar/horseradish-segmentation.git```
+    ```git clone https://github.com/Tanish-Inamdar/horseradish-segmentation.git```
 
 2. Set Up a Python Virtual Environment
 
-Create a virtual environment:
-
-    python -m venv .venv
-
-Activate it (on Windows):
-
-    .\.venv\Scripts\activate
+    Create a virtual environment:
     
+        python -m venv .venv
+    
+    Activate it (on Windows):
+    
+        .\.venv\Scripts\activate
+        
 3. Install Dependencies:
 
-```pip install -r requirements.txt```
-
+    ```pip install -r requirements.txt```
+    
 
 4. Make Sure to Have PyTorch
 
-```pip uninstall torch torchvision torchaudio```
-
-Then, install the CUDA-enabled version
-(This command is for CUDA 12.1, check the PyTorch website if you need a different one)
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+    ```pip uninstall torch torchvision torchaudio```
+    
+    Then, install the CUDA-enabled version
+    (This command is for CUDA 12.1, check the PyTorch website if you need a different one)
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 5. Make Sure to Have the Dataset and Update DATA_DIR
 
@@ -64,6 +64,7 @@ To train the model:
     python training.py
 
 (Remember to increase the EPOCHS, BATCH_SIZE, and NUM_WORKERS in the script):
+
     BATCH_SIZE: 32, NUM_WORKERS: 4
 
 To evaluate the best model:
