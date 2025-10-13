@@ -4,7 +4,7 @@ This project is all about using deep learning to automatically identify horserad
 
 The model uses a powerful pre-trained DINOv3 backbone and a custom segmentation head built with PyTorch.
 
-Files
+Files:
 
     training.py: The main script for training the model. It loads the data, kicks off the training loop, and saves the best model checkpoints.
 
@@ -43,8 +43,8 @@ pip install -r requirements.txt
 # First, uninstall any existing CPU-only version
 pip uninstall torch torchvision torchaudio
 
-# Then, install the CUDA-enabled version
-# (This command is for CUDA 12.1, check the PyTorch website if you need a different one)
+Then, install the CUDA-enabled version
+(This command is for CUDA 12.1, check the PyTorch website if you need a different one)
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
 
 5. Make Sure to Have the Dataset and Update DATA_DIR
@@ -55,7 +55,7 @@ The dataset isn't stored in Git. You'll need to download it to the lab computer 
 
     Open training.py and evaluation.py and update the path variables at the top of each file to point to the correct location of your dataset.
 
-How to Run
+#How to Run
 
 Make sure your virtual environment is active before running any scripts!
 
@@ -63,7 +63,7 @@ To train the model:
     
     python training.py
 
-    (Remember to increase the EPOCHS, BATCH_SIZE, and NUM_WORKERS in the script):
+(Remember to increase the EPOCHS, BATCH_SIZE, and NUM_WORKERS in the script):
     BATCH_SIZE: 32, NUM_WORKERS: 4
 
 To evaluate the best model:
