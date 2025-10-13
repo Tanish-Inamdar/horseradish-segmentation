@@ -44,7 +44,7 @@ model.to(device)
 BATCH_SIZE = 8
 # NUM_WORKERS = min(8, os.cpu_count() or 2)
 NUM_WORKERS = 0
-EPOCHS = 15
+EPOCHS = 30
 LR = 5e-4
 WEIGHT_DECAY = 1e-4
 WARMUP_RATIO = 0.05
@@ -158,33 +158,32 @@ start_epoch = 1
 global_step = 0
 best_acc = 0.0
 
-if os.path.exists(CKPT_PATH):
-    print("Checkpoint found! Loading model state...")
-    checkpoint = torch.load(CKPT_PATH)
-    
-    model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
-    
-    start_epoch = checkpoint['epoch'] + 1
-    global_step = checkpoint['step']
-    
-    print("Evaluating loaded model to get baseline accuracy...")
-    loaded_metrics = evaluate()
-    best_acc = loaded_metrics['val_dice']
-    
-    print(f"Resuming training from epoch {start_epoch} | Best Dice so far: {best_acc*100:.2f}%")
-else:
-    print(" No checkpoint found. Starting training from scratch.")
-
 if __name__ == '__main__':
     trackio.init(project="dinov3", config={
         "epochs": EPOCHS,
         "learning_rate": LR,
         "batch_size": BATCH_SIZE
     })
-    
-    for epoch in range(start_epoch, EPOCHS + 1):
+    num_total_epochs = 15
+
+    if os.path.exists(CKPT_PATH):
+        print("Checkpoint found! Loading model state...")
+        checkpoint = torch.load(CKPT_PATH, map_location=device)
+        
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
+        start_epoch = checkpoint['epoch'] + 1
+        global_step = checkpoint['step']
+        best_acc = checkpoint.get('best_acc', 0.0) 
+        
+        print(f"Resuming training from epoch {start_epoch} | Best Dice so far: {best_acc*100:.2f}%")
+    else:
+        print("No checkpoint found. Starting training from scratch.")
+
+
+
+    for epoch in range(start_epoch, num_total_epochs + 1):
         model.train()
         model.backbone.eval()
 
