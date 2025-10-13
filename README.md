@@ -27,16 +27,17 @@ cd horseradish-segmentation
 
 2. Set Up a Python Virtual Environment
 
-# Create a virtual environment
-python -m venv .venv
+Create a virtual environment:
 
-# Activate it (on Windows)
-.\.venv\Scripts\activate
+    python -m venv .venv
 
-3. Install Dependencies
+Activate it (on Windows):
 
+    .\.venv\Scripts\activate
+    
+3. Install Dependencies:
 
-pip install -r requirements.txt
+>pip install -r requirements.txt
 
 4. Make Sure to Have PyTorch
 
