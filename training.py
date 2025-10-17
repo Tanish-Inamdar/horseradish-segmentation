@@ -17,11 +17,17 @@ from transformers import AutoImageProcessor, AutoModel, AutoConfig, get_cosine_s
 from model import DinoV3ForSegmentation
 from segmentationDataset import HorseradishSegmentationDataset
 
+###TRAINING FOR LAB COMPUTER###
+# data_dir = "/home/tanishi2/ag group/dataset"
+# train_dir = "/home/tanishi2/ag group/dataset/train"
+# val_dir = "/home/tanishi2/ag group/dataset/val"
+###TRAINING FOR LAB COMPUTER###
 
-data_dir = "/home/tanishi2/ag group/dataset"
-train_dir = "/home/tanishi2/ag group/dataset/train"
-val_dir = "/home/tanishi2/ag group/dataset/val"
-
+###TRAINING FOR PERSONAL###
+data_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset"
+train_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\train"
+val_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
+###TRAINING FOR PERSONAL###
 
 
 
@@ -43,8 +49,8 @@ freeze_backbone = True
 model = DinoV3ForSegmentation(model_name=MODEL_NAME, num_classes=NUM_CLASSES)
 model.to(device)
 BATCH_SIZE = 32
-# NUM_WORKERS = min(8, os.cpu_count() or 2)
-NUM_WORKERS = 4
+# NUM_WORKERS = 4
+NUM_WORKERS = 0
 EPOCHS = 50
 LR = 5e-5
 WEIGHT_DECAY = 1e-4
@@ -82,35 +88,38 @@ val_loader = DataLoader(
     collate_fn=collate_fn,
 )
 
-class DiceLoss(nn.Module):
-    def __init__(self, smooth=1e-6, num_classes=3):
-        super(DiceLoss, self).__init__()
+class CombinedLoss(nn.Module):
+    def __init__(self, smooth=1e-6, num_classes=3, ce_weight=0.5, dice_weight=0.5):
+        super(CombinedLoss, self).__init__()
         self.smooth = smooth
         self.num_classes = num_classes
+        self.ce_weight = ce_weight
+        self.dice_weight = dice_weight
+        self.cross_entropy = nn.CrossEntropyLoss()
 
     def forward(self, inputs, targets):
+        # Cross-Entropy Loss
+        ce_loss = self.cross_entropy(inputs, targets)
+
+        # Dice Loss
         inputs_softmax = F.softmax(inputs, dim=1)
-        targets_one_hot = F.one_hot(targets, num_classes=self.num_classes)
-        # Permute to match the input shape: (Batch, Num_Classes, H, W)
-        targets_one_hot = targets_one_hot.permute(0, 3, 1, 2)
+        targets_one_hot = F.one_hot(targets, num_classes=self.num_classes).permute(0, 3, 1, 2)
         intersection = (inputs_softmax * targets_one_hot).sum()
         total_pixels = inputs_softmax.sum() + targets_one_hot.sum()
         dice = (2. * intersection + self.smooth) / (total_pixels + self.smooth)
-        loss = 1 - dice
+        dice_loss = 1 - dice
         
-        return loss
+        # Combine losses
+        combined_loss = (self.ce_weight * ce_loss) + (self.dice_weight * dice_loss)
+        return combined_loss
+
 
 optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=LR, weight_decay=WEIGHT_DECAY)
 total_steps = EPOCHS * math.ceil(len(train_loader))
 warmup_steps = int(WARMUP_RATIO * total_steps)
 scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
-criterion = DiceLoss(num_classes=NUM_CLASSES)
-
+criterion = CombinedLoss(num_classes=NUM_CLASSES)
 scaler = torch.amp.GradScaler('cuda',enabled=torch.cuda.is_available())
-
-
-
-import torch.nn.functional as F
 
 def dice_coefficient(pred, target, num_classes, smooth=1e-6):
     
@@ -146,8 +155,8 @@ def evaluate() -> Dict[str, float]:
             loss_sum += loss.item() * labels.size(0)
             dice = dice_coefficient(logits, labels, num_classes = NUM_CLASSES)
             total += dice
-            avg_loss = loss_sum / len(val_loader)
-            avg_dice = total/ len(val_loader)
+    avg_loss = loss_sum / len(val_loader)
+    avg_dice = total/ len(val_loader)
             
     return {
         "val_loss": avg_loss,
@@ -182,7 +191,8 @@ if __name__ == '__main__':
     else:
         print("No checkpoint found. Starting training from scratch.")
 
-
+    if freeze_backbone:
+        model.backbone.eval()
 
     for epoch in range(start_epoch, EPOCHS + 1):
         model.train()
@@ -207,7 +217,7 @@ if __name__ == '__main__':
 
             if global_step % EVAL_EVERY_STEPS == 0:
                 metrics = evaluate()
-                print(
+                tdqm.write(
                     f"\n[epoch {epoch} | step {global_step}] "
                     f"train_loss={running_loss / EVAL_EVERY_STEPS:.4f} "
                     f"val_loss={metrics['val_loss']:.4f} val_dice={metrics['val_dice']*100:.2f}%"
