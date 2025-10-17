@@ -11,7 +11,8 @@ from model import DinoV3ForSegmentation
 from segmentationDataset import HorseradishSegmentationDataset
 from training import SegmentationCollator
 
-VAL_DIR = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
+# VAL_DIR = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
+VAL_DIR = "/home/tanishi2/ag group/dataset/val"
 CKPT_PATH = "./weights/model_best.pt"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 BATCH_SIZE = 8
@@ -25,7 +26,7 @@ COLOR_MAP = {
 
 
 print("Loading model and dataset...")
-checkpoint = torch.load(CKPT_PATH, map_location=DEVICE)
+checkpoint = torch.load(CKPT_PATH, map_location=DEVICE, weights_only=False)
 image_processor = AutoImageProcessor.from_pretrained(
     checkpoint["config"]["model_name"]
 )
@@ -62,18 +63,20 @@ def calculate_metrics(pred_logits, target_masks, num_classes, smooth=1e-6):
     for cls in range(1, num_classes): 
         pred_c = pred_one_hot[:, cls, :, :]
         target_c = target_one_hot[:, cls, :, :]
-        
-        intersection = (pred_c * target_c).sum()
-        total_pixels = pred_c.sum() + target_c.sum()
+        if target_c.sum() > 0:
+            intersection = (pred_c * target_c).sum()
+            total_pixels = pred_c.sum() + target_c.sum()
 
-        dice = (2. * intersection + smooth) / (total_pixels + smooth)
-        dice_scores.append(dice.item())
+            dice = (2. * intersection + smooth) / (total_pixels + smooth)
+            dice_scores.append(dice.item())
 
-        union = total_pixels - intersection
-        iou = (intersection + smooth) / (union + smooth)
-        iou_scores.append(iou.item())
-        
-    return np.mean(dice_scores), np.mean(iou_scores)
+            union = total_pixels - intersection
+            iou = (intersection + smooth) / (union + smooth)
+            iou_scores.append(iou.item())
+    
+    mean_dice = np.mean(dice_scores) if dice_scores else 0.0
+    mean_iou = np.mean(iou_scores) if iou_scores else 0.0
+    return mean_dice, mean_iou
 
 def create_overlay(image, mask, color_map, alpha=0.5):
     """Creates a visual overlay of the mask on the image."""
