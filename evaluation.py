@@ -14,7 +14,7 @@ from training import SegmentationCollator
 VAL_DIR = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
 CKPT_PATH = "./weights/model_best.pt"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 NUM_CLASSES = 3 
 
 COLOR_MAP = {
@@ -35,8 +35,8 @@ val_loader = DataLoader(
     val_dataset,
     batch_size=BATCH_SIZE,
     shuffle=False,
-    # num_workers=4, # set to 0 now change later
-    num_workers=0,
+    num_workers=4, # set to 0 now change later
+    # num_workers=0,
     collate_fn=SegmentationCollator(),
 )
 

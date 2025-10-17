@@ -3,6 +3,8 @@ import torch
 import numpy as np
 from PIL import Image
 from torch.utils.data import Dataset
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 from torchvision import transforms
 
 class HorseradishSegmentationDataset(Dataset):
@@ -25,6 +27,12 @@ class HorseradishSegmentationDataset(Dataset):
         # Define the mapping from the class index in your .txt files to the mask value
         # Assume class 0 in your files is horseradish and class 1 is weed.
         self.class_map = {0: 1, 1: 2} # file_class_0 -> mask_value_1 (horseradish), file_class_1 -> mask_value_2 (weed)
+        self.transform = A.Compose([
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.RandomRotate90(p=0.5),
+            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1, p=0.8),
+        ])
 
     def __len__(self):
         """Returns the total number of images in the dataset."""

@@ -11,6 +11,7 @@ from PIL import Image
 from torchvision import datasets
 from dataclasses import dataclass
 from typing import List, Dict, Any
+from torch_lr_finder import LRFinder
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, random_split
 from transformers import AutoImageProcessor, AutoModel, AutoConfig, get_cosine_schedule_with_warmup
@@ -18,15 +19,15 @@ from model import DinoV3ForSegmentation
 from segmentationDataset import HorseradishSegmentationDataset
 
 ###TRAINING FOR LAB COMPUTER###
-# data_dir = "/home/tanishi2/ag group/dataset"
-# train_dir = "/home/tanishi2/ag group/dataset/train"
-# val_dir = "/home/tanishi2/ag group/dataset/val"
+data_dir = "/home/tanishi2/ag group/dataset"
+train_dir = "/home/tanishi2/ag group/dataset/train"
+val_dir = "/home/tanishi2/ag group/dataset/val"
 ###TRAINING FOR LAB COMPUTER###
 
 ###TRAINING FOR PERSONAL###
-data_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset"
-train_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\train"
-val_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
+# data_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset"
+# train_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\train"
+# val_dir = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
 ###TRAINING FOR PERSONAL###
 
 
@@ -48,15 +49,17 @@ val_dataset = HorseradishSegmentationDataset(root_dir=val_dir, processor=image_p
 freeze_backbone = True
 model = DinoV3ForSegmentation(model_name=MODEL_NAME, num_classes=NUM_CLASSES)
 model.to(device)
-BATCH_SIZE = 32
-# NUM_WORKERS = 4
-NUM_WORKERS = 0
-EPOCHS = 50
-LR = 5e-5
+BATCH_SIZE = 8
+NUM_WORKERS = 4
+# NUM_WORKERS = 0
+EPOCHS = 70
+HEAD_LR = 1e-4
+FULL_MODEL_LR = 5e-6
 WEIGHT_DECAY = 1e-4
 WARMUP_RATIO = 0.05
 CHECKPOINT_DIR = "./weights"
 EVAL_EVERY_STEPS = 100
+UNFREEZE_AT_EPOCH = 10
 
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
@@ -91,170 +94,145 @@ val_loader = DataLoader(
 class CombinedLoss(nn.Module):
     def __init__(self, smooth=1e-6, num_classes=3, ce_weight=0.5, dice_weight=0.5):
         super(CombinedLoss, self).__init__()
+        class_weights = torch.tensor([0.1, 0.5, 0.4]).to(device)
         self.smooth = smooth
         self.num_classes = num_classes
         self.ce_weight = ce_weight
         self.dice_weight = dice_weight
-        self.cross_entropy = nn.CrossEntropyLoss()
+        self.cross_entropy = nn.CrossEntropyLoss(weight=class_weights)
 
     def forward(self, inputs, targets):
-        # Cross-Entropy Loss
         ce_loss = self.cross_entropy(inputs, targets)
-
-        # Dice Loss
         inputs_softmax = F.softmax(inputs, dim=1)
-        targets_one_hot = F.one_hot(targets, num_classes=self.num_classes).permute(0, 3, 1, 2)
+        targets_one_hot = F.one_hot(targets, num_classes=self.num_classes).permute(0, 3, 1, 2).float()
         intersection = (inputs_softmax * targets_one_hot).sum()
         total_pixels = inputs_softmax.sum() + targets_one_hot.sum()
         dice = (2. * intersection + self.smooth) / (total_pixels + self.smooth)
         dice_loss = 1 - dice
-        
-        # Combine losses
-        combined_loss = (self.ce_weight * ce_loss) + (self.dice_weight * dice_loss)
-        return combined_loss
+        return (self.ce_weight * ce_loss) + (self.dice_weight * dice_loss)
 
-
-optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=LR, weight_decay=WEIGHT_DECAY)
-total_steps = EPOCHS * math.ceil(len(train_loader))
-warmup_steps = int(WARMUP_RATIO * total_steps)
-scheduler = get_cosine_schedule_with_warmup(optimizer, num_warmup_steps=warmup_steps, num_training_steps=total_steps)
 criterion = CombinedLoss(num_classes=NUM_CLASSES)
-scaler = torch.amp.GradScaler('cuda',enabled=torch.cuda.is_available())
+scaler = torch.amp.GradScaler(enabled=torch.cuda.is_available())
 
 def dice_coefficient(pred, target, num_classes, smooth=1e-6):
-    
     pred_softmax = F.softmax(pred, dim=1)
-    
-
     target_one_hot = F.one_hot(target, num_classes=num_classes).permute(0, 3, 1, 2)
-
-    # 3. Calculate Dice for each class (ignoring background class 0)
     dice_scores = []
-    for cls in range(1, num_classes): # Start from 1 to ignore background
+    for cls in range(1, num_classes):
         pred_c = pred_softmax[:, cls, :, :]
         target_c = target_one_hot[:, cls, :, :]
-        
         intersection = (pred_c * target_c).sum()
         union = pred_c.sum() + target_c.sum()
-        
         dice = (2. * intersection + smooth) / (union + smooth)
-        dice_scores.append(dice)
-        
-    # Average the Dice score across the foreground classes (horseradish and weed)
-    return torch.mean(torch.tensor(dice_scores)).item()
+        dice_scores.append(dice.item())
+    return np.mean(dice_scores) if dice_scores else 0.0
 
 def evaluate() -> Dict[str, float]:
     model.eval()
-    total, loss_sum = 0, 0.0
+    total_dice, loss_sum = 0.0, 0.0
     with torch.no_grad():
         for batch in val_loader:
             pixel_values = batch["pixel_values"].to(device, non_blocking=True)
             labels = batch["labels"].to(device, non_blocking=True)
             logits = model(pixel_values)
             loss = criterion(logits, labels)
-            loss_sum += loss.item() * labels.size(0)
-            dice = dice_coefficient(logits, labels, num_classes = NUM_CLASSES)
-            total += dice
-    avg_loss = loss_sum / len(val_loader)
-    avg_dice = total/ len(val_loader)
-            
-    return {
-        "val_loss": avg_loss,
-        "val_dice": avg_dice,
-    }
+            loss_sum += loss.item() * pixel_values.size(0)
+            dice = dice_coefficient(logits, labels, num_classes=NUM_CLASSES)
+            total_dice += dice
+    avg_loss = loss_sum / len(val_dataset)
+    avg_dice = total_dice / len(val_loader)
+    return {"val_loss": avg_loss, "val_dice": avg_dice}
 
-CKPT_PATH = os.path.join(CHECKPOINT_DIR, "model_best.pt")
-start_epoch = 1
-global_step = 0
-best_acc = 0.0
 
+### TRAINING SCRIPT ###
 if __name__ == '__main__':
-    trackio.init(project="dinov3", config={
-        "epochs": EPOCHS,
-        "learning_rate": LR,
-        "batch_size": BATCH_SIZE
-    })
-    # num_total_epochs = 50
-
+    CKPT_PATH = os.path.join(CHECKPOINT_DIR, "model_best.pt")
+    start_epoch = 1
+    best_acc = 0.0
+    optimizer = None
+    
     if os.path.exists(CKPT_PATH):
-        print("Checkpoint found! Loading model state...")
-        checkpoint = torch.load(CKPT_PATH, map_location=device)
-        
+        print("Checkpoint found. Loading model state...")
+        checkpoint = torch.load(CKPT_PATH, map_location=device, weights_only=False)
         model.load_state_dict(checkpoint['model_state_dict'])
-        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-        scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
         start_epoch = checkpoint['epoch'] + 1
-        global_step = checkpoint['step']
-        best_acc = checkpoint.get('best_acc', 0.0) 
-        
+        best_acc = checkpoint.get('best_acc', 0.0)
         print(f"Resuming training from epoch {start_epoch} | Best Dice so far: {best_acc*100:.2f}%")
     else:
-        print("No checkpoint found. Starting training from scratch.")
+        print("ℹ️ No checkpoint found. Starting training from scratch.")
+    
+    trackio.init(project="horseradish-dinov3", config={
+        "epochs": EPOCHS,
+        "batch_size": BATCH_SIZE,
+        "head_lr": HEAD_LR,
+        "full_model_lr": FULL_MODEL_LR,
+        "unfreeze_at_epoch": UNFREEZE_AT_EPOCH
+    })
 
-    if freeze_backbone:
-        model.backbone.eval()
+    # --- Phase 1: Train only the decoder ---
+    model.freeze_backbone()
+    optimizer = torch.optim.AdamW(model.decoder_head.parameters(), lr=HEAD_LR, weight_decay=WEIGHT_DECAY)
 
     for epoch in range(start_epoch, EPOCHS + 1):
+        if epoch == UNFREEZE_AT_EPOCH:
+            model.unfreeze_backbone()
+            optimizer = torch.optim.AdamW(model.parameters(), lr=FULL_MODEL_LR, weight_decay=WEIGHT_DECAY)
         model.train()
-        model.backbone.eval()
+        model.backbone.eval() 
 
         running_loss = 0.0
-        for i, batch in tqdm(enumerate(train_loader, start=1), desc=f"Epoch {epoch}/{EPOCHS}", total=len(train_loader)):
+        pbar = tqdm(train_loader, desc=f"Epoch {epoch}/{EPOCHS}")
+        for batch in pbar:
             pixel_values = batch["pixel_values"].to(device, non_blocking=True)
             labels = batch["labels"].to(device, non_blocking=True)
 
             optimizer.zero_grad(set_to_none=True)
-            logits = model(pixel_values)
-            loss = criterion(logits, labels)
+
+            with torch.amp.autocast(device_type='cuda', enabled=torch.cuda.is_available()):
+                logits = model(pixel_values)
+                loss = criterion(logits, labels)
 
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
-            scheduler.step()
 
             running_loss += loss.item()
-            global_step += 1
-
-            if global_step % EVAL_EVERY_STEPS == 0:
-                metrics = evaluate()
-                tdqm.write(
-                    f"\n[epoch {epoch} | step {global_step}] "
-                    f"train_loss={running_loss / EVAL_EVERY_STEPS:.4f} "
-                    f"val_loss={metrics['val_loss']:.4f} val_dice={metrics['val_dice']*100:.2f}%"
-                )
-                
-                trackio.log({
-                    "epoch": epoch,
-                    "val_dice": metrics['val_dice'],
-                    "train_loss": running_loss / EVAL_EVERY_STEPS,
-                    "val_loss": metrics['val_loss'],
-                    "learning_rate": scheduler.get_last_lr()[0]
-                })
-
-                running_loss = 0.0
-
-                if metrics["val_dice"] > best_acc:
-                    print(f" New best model found! Dice improved from {best_acc*100:.2f}% to {metrics['val_dice']*100:.2f}%. Saving checkpoint...")
-                    best_acc = metrics["val_dice"]
-                    torch.save({
-                        "model_state_dict": model.state_dict(),
-                        "optimizer_state_dict": optimizer.state_dict(),
-                        "scheduler_state_dict": scheduler.state_dict(),
-                        "config": {
-                            "model_name": MODEL_NAME,
-                            "backbone": backbone_config,
-                            "image_processor": image_processor_config,
-                            "freeze_backbone": freeze_backbone,
-                        },
-                        "step": global_step,
-                        "epoch": epoch,
-                        "best_acc": best_acc,
-                    }, CKPT_PATH)
-
+            pbar.set_postfix({"loss": f"{loss.item():.4f}"})
         metrics = evaluate()
+        avg_train_loss = running_loss / len(train_loader)
+        current_lr = optimizer.param_groups[0]['lr']
+
         print(
-            f"END EPOCH {epoch}: val_loss={metrics['val_loss']:.4f} val_dice={metrics['val_dice']*100:.2f}% "
-            f"(best_acc={best_acc*100:.2f}%)"
+            f"\n[END OF EPOCH {epoch}] Train Loss: {avg_train_loss:.4f} | "
+            f"Val Loss: {metrics['val_loss']:.4f} | Val Dice: {metrics['val_dice']*100:.2f}% | LR: {current_lr:.2e}"
         )
-    
+
+        trackio.log({
+            "epoch": epoch,
+            "train_loss": avg_train_loss,
+            "val_loss": metrics['val_loss'],
+            "val_dice": metrics['val_dice'],
+            "learning_rate": current_lr
+        })
+
+        if metrics["val_dice"] > best_acc:
+            print(f"New best model. Dice improved from {best_acc*100:.2f}% to {metrics['val_dice']*100:.2f}%. Saving checkpoint...")
+            best_acc = metrics["val_dice"]
+            torch.save({
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "epoch": epoch,
+                "best_acc": best_acc,
+                "config": {
+                    "model_name": MODEL_NAME,
+                }
+            }, CKPT_PATH)
+
     trackio.finish()
+
+
+
+
+
+
+
