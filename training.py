@@ -52,14 +52,14 @@ model.to(device)
 BATCH_SIZE = 8
 NUM_WORKERS = 4
 # NUM_WORKERS = 0
-EPOCHS = 70
-HEAD_LR = 1e-4
-FULL_MODEL_LR = 5e-6
+EPOCHS = 50
+HEAD_LR = 5e-4
+FULL_MODEL_LR = 1e-5
 WEIGHT_DECAY = 1e-4
 WARMUP_RATIO = 0.05
 CHECKPOINT_DIR = "./weights"
 EVAL_EVERY_STEPS = 100
-UNFREEZE_AT_EPOCH = 10
+UNFREEZE_AT_EPOCH = 20
 
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 
@@ -110,8 +110,30 @@ class CombinedLoss(nn.Module):
         dice = (2. * intersection + self.smooth) / (total_pixels + self.smooth)
         dice_loss = 1 - dice
         return (self.ce_weight * ce_loss) + (self.dice_weight * dice_loss)
+    
+class FocalTverskyLoss(nn.Module):
+    def __init__(self, alpha=0.7, beta=0.3, gamma=4/3, smooth=1e-6):
+        super(FocalTverskyLoss, self).__init__()
+        self.alpha = alpha
+        self.beta = beta
+        self.gamma = gamma
+        self.smooth = smooth
 
-criterion = CombinedLoss(num_classes=NUM_CLASSES)
+    def forward(self, inputs, targets):
+        inputs = F.softmax(inputs, dim=1)
+        targets_one_hot = F.one_hot(targets, num_classes=inputs.shape[1]).permute(0, 3, 1, 2).float()
+
+        # True Positives, False Positives & False Negatives
+        TP = (inputs * targets_one_hot).sum()
+        FP = ((1 - targets_one_hot) * inputs).sum()
+        FN = (targets_one_hot * (1 - inputs)).sum()
+
+        Tversky = (TP + self.smooth) / (TP + self.alpha * FN + self.beta * FP + self.smooth)
+        FocalTversky = (1 - Tversky)**self.gamma
+
+        return FocalTversky
+
+criterion = FocalTverskyLoss(alpha=0.7, beta=0.3).to(device)
 scaler = torch.amp.GradScaler(enabled=torch.cuda.is_available())
 
 def dice_coefficient(pred, target, num_classes, smooth=1e-6):
@@ -121,10 +143,11 @@ def dice_coefficient(pred, target, num_classes, smooth=1e-6):
     for cls in range(1, num_classes):
         pred_c = pred_softmax[:, cls, :, :]
         target_c = target_one_hot[:, cls, :, :]
-        intersection = (pred_c * target_c).sum()
-        union = pred_c.sum() + target_c.sum()
-        dice = (2. * intersection + smooth) / (union + smooth)
-        dice_scores.append(dice.item())
+        if target_c.sum() > 0:
+            intersection = (pred_c * target_c).sum()
+            union = pred_c.sum() + target_c.sum()
+            dice = (2. * intersection + smooth) / (union + smooth)
+            dice_scores.append(dice.item())
     return np.mean(dice_scores) if dice_scores else 0.0
 
 def evaluate() -> Dict[str, float]:
@@ -159,7 +182,7 @@ if __name__ == '__main__':
         best_acc = checkpoint.get('best_acc', 0.0)
         print(f"Resuming training from epoch {start_epoch} | Best Dice so far: {best_acc*100:.2f}%")
     else:
-        print("ℹ️ No checkpoint found. Starting training from scratch.")
+        print("No checkpoint found. Starting training from scratch.")
     
     trackio.init(project="horseradish-dinov3", config={
         "epochs": EPOCHS,
@@ -229,10 +252,5 @@ if __name__ == '__main__':
             }, CKPT_PATH)
 
     trackio.finish()
-
-
-
-
-
 
 

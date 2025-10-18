@@ -115,6 +115,10 @@ if __name__ == "__main__":
     num_examples = min(BATCH_SIZE, 4) 
 
     vis_batch = next(iter(val_loader))
+    ground_truth_mask = vis_batch["labels"][0].numpy()
+    gt_pil = Image.fromarray((ground_truth_mask * 120).astype(np.uint8))
+    gt_pil.save("ground_truth_sanity_check.jpg")
+    print("Saved a ground truth mask to ground_truth_sanity_check.jpg")
     pixel_values = vis_batch["pixel_values"][:num_examples].to(DEVICE)
     
     with torch.no_grad():
