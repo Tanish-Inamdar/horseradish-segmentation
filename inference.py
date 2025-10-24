@@ -9,10 +9,13 @@ from transformers import AutoImageProcessor
 CKPT_PATH = "./weights/model_best.pt"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MODEL_NAME = "facebook/dinov3-convnext-base-pretrain-lvd1689m"
+# MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
+
 
 # testing a picture from the validation set
 # IMAGE_TO_TEST = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val\\images\\DJI_20250612151152_0167_D_JPG.rf.8fb3f5876e4879eb7fc14a9775995071.jpg"
-IMAGE_TO_TEST = "/home/tanishi2/ag group/dataset/val/images/DJI_20250612150326_0055_D_JPG.rf.71aca717600db015bc238f39667d4210.jpg"
+# IMAGE_TO_TEST = "/home/tanishi2/ag group/dataset/val/images/DJI_20250612150326_0055_D_JPG.rf.71aca717600db015bc238f39667d4210.jpg"
+IMAGE_TO_TEST = "/home/tanishi2/Downloads/DJI_20250612151426_0226_D_JPG.rf.d2ba1e378dac2b270e66914d2c356d3e.jpg"
 
 COLOR_MAP = {
     0: (0, 0, 0),        # Black for Background

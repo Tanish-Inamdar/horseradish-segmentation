@@ -1,11 +1,13 @@
 import os
 import torch
 import numpy as np
-import cv2 # Using OpenCV for robust polygon drawing
+import cv2 
 from PIL import Image
 from torch.utils.data import Dataset
 from torchvision import transforms
 import torch.nn.functional as F
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
 
 class HorseradishSegmentationDataset(Dataset):
     """
@@ -16,7 +18,13 @@ class HorseradishSegmentationDataset(Dataset):
         self.processor = processor
         self.image_dir = os.path.join(root_dir, 'images')
         self.label_dir = os.path.join(root_dir, 'labels')
-        
+        self.transform = A.Compose([
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.RandomRotate90(p=0.5),
+            A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.3),
+        ])
+        self.processor = processor
         self.image_filenames = sorted([f for f in os.listdir(self.image_dir) if f.endswith('.jpg')])
         self.class_map = {0: 1, 1: 2} # file_class_0 -> mask_value_1 (horseradish), file_class_1 -> mask_value_2 (weed)
 
@@ -28,7 +36,8 @@ class HorseradishSegmentationDataset(Dataset):
         image_path = os.path.join(self.image_dir, image_name)
         label_name = os.path.splitext(image_name)[0] + '.txt'
         label_path = os.path.join(self.label_dir, label_name)
-
+        image_pil = Image.open(image_path).convert("RGB")
+        original_width, original_height = image_pil.size
         image = Image.open(image_path).convert("RGB")
         original_width, original_height = image.size
 
@@ -51,10 +60,17 @@ class HorseradishSegmentationDataset(Dataset):
                     
                     # Draw the filled polygon onto the mask
                     cv2.fillPoly(mask, [polygon_pixels], color=mask_value)
+
+        image_np = np.array(image_pil)
+
+        if self.transform:
+             augmented = self.transform(image=image_np, mask=mask)
+             image_np = augmented['image']
+             mask = augmented['mask'] 
         # --- Manually transform the image and mask separately ---
 
         # 1. Process the image using the Hugging Face processor
-        inputs = self.processor(images=image, return_tensors="pt")
+        inputs = self.processor(images=image_np, return_tensors="pt") 
 
         # 2. Convert numpy mask directly to tensor WITHOUT scaling
         # Convert numpy array HxW to tensor HxW

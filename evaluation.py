@@ -130,7 +130,7 @@ if __name__ == "__main__":
     vis_images = (pixel_values.cpu() * std) + mean
     vis_images = (vis_images.permute(0, 2, 3, 1).numpy() * 255).astype(np.uint8)
 
-    fig, axes = plt.subplots(num_examples, 2, figsize=(8, num_examples * 4))
+    fig, axes = plt.subplots(num_examples, 2, figsize=(8, num_examples * 2))
     for i in range(num_examples):
         img_pil = Image.fromarray(vis_images[i])
         pred_mask = vis_preds[i]
