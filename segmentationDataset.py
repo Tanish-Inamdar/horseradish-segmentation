@@ -23,6 +23,10 @@ class HorseradishSegmentationDataset(Dataset):
             A.VerticalFlip(p=0.5),
             A.RandomRotate90(p=0.5),
             A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.3),
+            A.ShiftScaleRotate(p=0.5, shift_limit=0.0625, scale_limit=0.1, rotate_limit=10),
+            A.RandomBrightnessContrast(p=0.3, brightness_limit=0.2, contrast_limit=0.2),
+            A.GaussNoise(p=0.1),
+            A.ElasticTransform(p=0.1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
         ])
         self.processor = processor
         self.image_filenames = sorted([f for f in os.listdir(self.image_dir) if f.endswith('.jpg')])
