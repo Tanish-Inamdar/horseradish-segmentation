@@ -68,7 +68,7 @@ class DinoV3ForSegmentation(nn.Module):
             mode='bilinear',
             align_corners=False
         )        
-        return final_logits
+        return final_logits, features2d
 
     def freeze_backbone(self):
         print("Freezing DINOv3 backbone.")

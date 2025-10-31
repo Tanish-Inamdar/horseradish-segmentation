@@ -98,9 +98,10 @@ if __name__ == "__main__":
             pixel_values = batch["pixel_values"].to(DEVICE)
             labels = batch["labels"].to(DEVICE)
             
-            logits = model(pixel_values)
+            vis_logits, vis_features = model(pixel_values)
+            vis_preds = torch.argmax(vis_logits, dim=1).cpu().numpy()
             
-            dice, iou = calculate_metrics(logits.cpu(), labels.cpu(), num_classes=NUM_CLASSES)
+            dice, iou = calculate_metrics(vis_logits.cpu(), labels.cpu(), num_classes=NUM_CLASSES)
             total_dice += dice
             total_iou += iou
 
@@ -115,6 +116,7 @@ if __name__ == "__main__":
     num_examples = min(BATCH_SIZE, 4) 
 
     vis_batch = next(iter(val_loader))
+
     ground_truth_mask = vis_batch["labels"][0].numpy()
     gt_pil = Image.fromarray((ground_truth_mask * 120).astype(np.uint8))
     gt_pil.save("ground_truth_sanity_check.jpg")
@@ -130,7 +132,7 @@ if __name__ == "__main__":
     vis_images = (pixel_values.cpu() * std) + mean
     vis_images = (vis_images.permute(0, 2, 3, 1).numpy() * 255).astype(np.uint8)
 
-    fig, axes = plt.subplots(num_examples, 2, figsize=(8, num_examples * 2))
+    fig, axes = plt.subplots(num_examples, 3, figsize=(12, num_examples * 2))
     for i in range(num_examples):
         img_pil = Image.fromarray(vis_images[i])
         pred_mask = vis_preds[i]
@@ -140,6 +142,20 @@ if __name__ == "__main__":
         
         overlay = create_overlay(img_pil, np.array(pred_mask_resized), COLOR_MAP)
         
+        #logic for feature map?#
+        features = vis_features[i].cpu()
+        H_feat, W_feat = features.shape[-2], features.shape[-1]
+        ref_h, ref_w = H_feat // 2, W_feat // 2
+        ref_feature = features[:, ref_h, ref_w]
+        flat_features = features.permute(1, 2, 0).reshape(-1, features.shape[0])
+        ref_feature_norm = F.normalize(ref_feature.unsqueeze(0), p=2, dim=1)
+        flat_features_norm = F.normalize(flat_features, p=2, dim=1)
+        similarity_map = torch.matmul(flat_features_norm, ref_feature_norm.T).reshape(H_feat, W_feat).numpy()
+        similarity_map_resized = Image.fromarray(similarity_map).resize(
+        img_pil.size, Image.BILINEAR)
+
+
+        
         ax = axes[i, 0]
         ax.imshow(img_pil)
         ax.set_title("Input Image")
@@ -148,6 +164,14 @@ if __name__ == "__main__":
         ax = axes[i, 1]
         ax.imshow(overlay)
         ax.set_title("Predicted Overlay")
+        ax.axis('off')
+
+        ax = axes[i, 2]
+        ax.imshow(img_pil) 
+        ax.imshow(similarity_map_resized, alpha=0.6, cmap='viridis') 
+        ax.scatter(img_pil.size[0] * ref_w / W_feat, img_pil.size[1] * ref_h / H_feat, 
+                color='red', marker='x', s=100, linewidth=2) # marks the reference points
+        ax.set_title(f"Feature Similarity Map (Ref: {ref_h},{ref_w})")
         ax.axis('off')
 
     plt.tight_layout()
