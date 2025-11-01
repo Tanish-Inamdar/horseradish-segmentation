@@ -7,6 +7,8 @@ from tqdm import tqdm
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from transformers import AutoImageProcessor
+import matplotlib.image as mpimg
+from matplotlib.image import AxesImage
 from model import DinoV3ForSegmentation
 from segmentationDataset import HorseradishSegmentationDataset
 from training import SegmentationCollator
@@ -119,12 +121,12 @@ if __name__ == "__main__":
 
     ground_truth_mask = vis_batch["labels"][0].numpy()
     gt_pil = Image.fromarray((ground_truth_mask * 120).astype(np.uint8))
-    gt_pil.save("ground_truth_sanity_check.jpg")
-    print("Saved a ground truth mask to ground_truth_sanity_check.jpg")
+    # gt_pil.save("ground_truth_sanity_check.jpg")
+    # print("Saved a ground truth mask to ground_truth_sanity_check.jpg")
     pixel_values = vis_batch["pixel_values"][:num_examples].to(DEVICE)
     
     with torch.no_grad():
-        vis_logits = model(pixel_values)
+        vis_logits, vis_features = model(pixel_values)
         vis_preds = torch.argmax(vis_logits, dim=1).cpu().numpy()
 
     mean = torch.tensor(image_processor.image_mean).view(3, 1, 1)
@@ -145,34 +147,69 @@ if __name__ == "__main__":
         #logic for feature map?#
         features = vis_features[i].cpu()
         H_feat, W_feat = features.shape[-2], features.shape[-1]
-        ref_h, ref_w = H_feat // 2, W_feat // 2
+        pred_mask_downsampled = Image.fromarray(vis_preds[i].astype(np.uint8)).resize(
+            (W_feat, H_feat), Image.NEAREST
+        )
+        pred_mask_downsampled = np.array(pred_mask_downsampled)
+        plant_coords = np.argwhere(pred_mask_downsampled == 1)
+
+        if len(plant_coords) > 0:
+            ref_h, ref_w = plant_coords[len(plant_coords) // 2]
+        else:
+            ref_h, ref_w = H_feat // 2, W_feat // 2
+        
         ref_feature = features[:, ref_h, ref_w]
         flat_features = features.permute(1, 2, 0).reshape(-1, features.shape[0])
         ref_feature_norm = F.normalize(ref_feature.unsqueeze(0), p=2, dim=1)
         flat_features_norm = F.normalize(flat_features, p=2, dim=1)
         similarity_map = torch.matmul(flat_features_norm, ref_feature_norm.T).reshape(H_feat, W_feat).numpy()
-        similarity_map_resized = Image.fromarray(similarity_map).resize(
-        img_pil.size, Image.BILINEAR)
-
-
+        
+        im = None
         
         ax = axes[i, 0]
         ax.imshow(img_pil)
         ax.set_title("Input Image")
         ax.axis('off')
         
+        # Column 2: Predicted Segmentation Overlay (Green/Red)
         ax = axes[i, 1]
         ax.imshow(overlay)
         ax.set_title("Predicted Overlay")
         ax.axis('off')
 
-        ax = axes[i, 2]
+        # Column 3: Feature Similarity Map (Input Image + Heatmap Overlay)
+        ax = axes[i, 2] 
         ax.imshow(img_pil) 
-        ax.imshow(similarity_map_resized, alpha=0.6, cmap='viridis') 
-        ax.scatter(img_pil.size[0] * ref_w / W_feat, img_pil.size[1] * ref_h / H_feat, 
-                color='red', marker='x', s=100, linewidth=2) # marks the reference points
-        ax.set_title(f"Feature Similarity Map (Ref: {ref_h},{ref_w})")
+        im_current = ax.imshow(
+            similarity_map, 
+            alpha=0.6, 
+            cmap='inferno',
+            interpolation='bicubic',
+            # Use np.min(similarity_map) as vmin is robust, or you could set a baseline, e.g., vmin=0.5
+            vmin=np.min(similarity_map), 
+            vmax=1.0, # Cosine similarity ranges up to 1.0
+            extent=[0, img_pil.size[0], img_pil.size[1], 0] # Map to original pixel space
+        )
+        ax.scatter(
+            img_pil.size[0] * (ref_w + 0.5) / W_feat, 
+            img_pil.size[1] * (ref_h + 0.5) / H_feat, 
+            color='red', 
+            marker='x', 
+            s=100, 
+            linewidth=2
+        )
+        if i == num_examples - 1:
+            im = im_current
+        
+        ax.set_title(f"Feature Sim. (Ref: {ref_h},{ref_w})")
         ax.axis('off')
 
     plt.tight_layout()
+    if im is not None:
+            cbar = fig.colorbar(im, ax=axes[:, 2].ravel().tolist(), orientation='vertical', 
+                                fraction=0.046, pad=0.04)
+            cbar.set_label('Cosine Similarity (Dense Features)')
+    output_filename = "horseradish_feature_analysis_high_res.png"
+    plt.savefig(output_filename, dpi=600, bbox_inches='tight')
+    print(f"\nSaved high-resolution visualization to {output_filename}")
     plt.show()

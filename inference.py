@@ -8,8 +8,8 @@ from transformers import AutoImageProcessor
 
 CKPT_PATH = "./weights/model_best.pt"
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MODEL_NAME = "facebook/dinov3-convnext-base-pretrain-lvd1689m"
-# MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
+# MODEL_NAME = "facebook/dinov3-convnext-base-pretrain-lvd1689m"
+MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
 
 
 # testing a picture from the validation set

@@ -37,9 +37,9 @@ NUM_CLASSES = 3
 
 # MODEL_NAME = "C:\\Users\\tanis\\AG GROUP\\dinov3-convnext-tiny-pretrain-lvd1689m"
 
-MODEL_NAME = "facebook/dinov3-convnext-base-pretrain-lvd1689m"
+# MODEL_NAME = "facebook/dinov3-convnext-base-pretrain-lvd1689m"
 
-# MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
+MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -54,10 +54,10 @@ val_dataset = HorseradishSegmentationDataset(root_dir=val_dir, processor=image_p
 freeze_backbone = True
 model = DinoV3ForSegmentation(model_name=MODEL_NAME, num_classes=NUM_CLASSES)
 model.to(device)
-BATCH_SIZE = 8
+BATCH_SIZE = 6
 NUM_WORKERS = 4
 # NUM_WORKERS = 0
-EPOCHS = 100000000
+EPOCHS = 600
 HEAD_LR = 5e-4
 FULL_MODEL_LR = 1e-5
 WEIGHT_DECAY = 1e-4

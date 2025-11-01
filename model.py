@@ -12,8 +12,8 @@ class DinoV3ForSegmentation(nn.Module):
         
         # Get the feature dimension from the backbone's configuration
         # self.feature_dims = [96, 192, 384, 768] # For convnext tiny
-        self.feature_dims = [128, 256, 512, 1024] # For convnext base
-        #self.feature_dims = [192, 384, 768, 1536] # For convnext large
+        # self.feature_dims = [128, 256, 512, 1024] # For convnext base
+        self.feature_dims = [192, 384, 768, 1536] # For convnext large
         
         # 2. Define the Decoder
         # This head will upsample the features from 1/32 of the image size back to full size.
@@ -68,7 +68,7 @@ class DinoV3ForSegmentation(nn.Module):
             mode='bilinear',
             align_corners=False
         )        
-        return final_logits, features2d
+        return final_logits, features_2d
 
     def freeze_backbone(self):
         print("Freezing DINOv3 backbone.")

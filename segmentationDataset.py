@@ -26,7 +26,9 @@ class HorseradishSegmentationDataset(Dataset):
             A.ShiftScaleRotate(p=0.5, shift_limit=0.0625, scale_limit=0.1, rotate_limit=10),
             A.RandomBrightnessContrast(p=0.3, brightness_limit=0.2, contrast_limit=0.2),
             A.GaussNoise(p=0.1),
-            A.ElasticTransform(p=0.1, alpha=120, sigma=120 * 0.05, alpha_affine=120 * 0.03),
+            A.ElasticTransform(p=0.1, alpha=120, sigma=120 * 0.05),
+            A.MotionBlur(blur_limit=[13, 17], allow_shifted=False, angle_range=[0, 0], direction_range=[0, 0]),
+            A.Downscale(scale_range=[0.25, 0.25], interpolation_pair={"upscale":0,"downscale":0}),
         ])
         self.processor = processor
         self.image_filenames = sorted([f for f in os.listdir(self.image_dir) if f.endswith('.jpg')])
