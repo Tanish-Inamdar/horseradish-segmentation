@@ -12,6 +12,7 @@ from matplotlib.image import AxesImage
 from model import DinoV3ForSegmentation
 from segmentationDataset import HorseradishSegmentationDataset
 from training import SegmentationCollator
+import cv2
 
 # VAL_DIR = "C:\\Users\\tanis\\AG GROUP\\horseradish_dataset\\val"
 VAL_DIR = "/home/tanishi2/ag group/dataset/val"
@@ -25,6 +26,7 @@ COLOR_MAP = {
     1: (0, 255, 0),      # Green for Horseradish
     2: (255, 0, 0),      # Red for Weed
 }
+WEED_CLASS_ID = 2
 
 
 print("Loading model and dataset...")
@@ -79,6 +81,28 @@ def calculate_metrics(pred_logits, target_masks, num_classes, smooth=1e-6):
     mean_dice = np.mean(dice_scores) if dice_scores else 0.0
     mean_iou = np.mean(iou_scores) if iou_scores else 0.0
     return mean_dice, mean_iou
+
+def extract_weed_centroids(binary_weed_mask, min_area_threshold=50):
+    #need 8bit mask for cv2
+    mask_8bit = (binary_weed_mask > 0).astype(np.uint8) * 255 
+    contours, _ = cv2.findContours(mask_8bit, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    centroids = []
+    
+    for contour in contours:
+        area = cv2.contourArea(contour)
+        if area >= min_area_threshold:
+            # Calculate moments for the contour
+            M = cv2.moments(contour)
+            if M["m00"] != 0:
+                cX = int(M["m10"] / M["m00"])
+                cY = int(M["m01"] / M["m00"])
+                H, W = binary_weed_mask.shape
+                norm_cX = cX / W
+                norm_cY = cY / H
+                
+                centroids.append((norm_cX, norm_cY, area))
+                
+    return centroids
 
 def create_overlay(image, mask, color_map, alpha=0.5):
     """Creates a visual overlay of the mask on the image."""
@@ -138,6 +162,17 @@ if __name__ == "__main__":
     for i in range(num_examples):
         img_pil = Image.fromarray(vis_images[i])
         pred_mask = vis_preds[i]
+
+        weed_mask_255 = (pred_mask == WEED_CLASS_ID).astype(np.uint8) * 255
+        
+        # 2. Extract the centroids
+        weed_centroids = extract_weed_centroids(weed_mask_255, min_area_threshold=50) #maybe change min area on testing?
+        
+        ###test###
+        print(f"Image {i+1}: Found {len(weed_centroids)} weed centroids (normalized x, y, area):")
+        print(weed_centroids)
+        ###test###
+
         pred_mask_resized = Image.fromarray(pred_mask.astype(np.uint8)).resize(
             img_pil.size, Image.NEAREST
         )
@@ -176,6 +211,11 @@ if __name__ == "__main__":
         ax.imshow(overlay)
         ax.set_title("Predicted Overlay")
         ax.axis('off')
+
+        for cX, cY, area in weed_centroids:
+            ax.scatter(cX, cY, color='yellow', marker='o', s=50, linewidth=1.5) 
+            #label text no idea?
+            ax.text(cX + 10, cY + 10, f"{int(area)}", color='yellow', fontsize=6)
 
         # Column 3: Feature Similarity Map (Input Image + Heatmap Overlay)
         ax = axes[i, 2] 
