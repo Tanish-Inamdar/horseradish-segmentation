@@ -19,16 +19,16 @@ class HorseradishSegmentationDataset(Dataset):
         self.image_dir = os.path.join(root_dir, 'images')
         self.label_dir = os.path.join(root_dir, 'labels')
         self.transform = A.Compose([
-            A.HorizontalFlip(p=0.5),
-            A.VerticalFlip(p=0.5),
-            A.RandomRotate90(p=0.5),
-            A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.3),
-            A.ShiftScaleRotate(p=0.5, shift_limit=0.0625, scale_limit=0.1, rotate_limit=10),
-            A.RandomBrightnessContrast(p=0.3, brightness_limit=0.2, contrast_limit=0.2),
-            A.GaussNoise(p=0.1),
-            A.ElasticTransform(p=0.1, alpha=120, sigma=120 * 0.05),
-            A.MotionBlur(blur_limit=[13, 17], allow_shifted=False, angle_range=[0, 0], direction_range=[0, 0]),
-            A.Downscale(scale_range=[0.25, 0.25], interpolation_pair={"upscale":0,"downscale":0}),
+            # A.HorizontalFlip(p=0.5),
+            # A.VerticalFlip(p=0.5),
+            # A.RandomRotate90(p=0.5),
+            # A.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1, p=0.3),
+            # A.ShiftScaleRotate(p=0.5, shift_limit=0.0625, scale_limit=0.1, rotate_limit=10),
+            # A.RandomBrightnessContrast(p=0.3, brightness_limit=0.2, contrast_limit=0.2),
+            # A.GaussNoise(p=0.1),
+            # A.ElasticTransform(p=0.1, alpha=120, sigma=120 * 0.05),
+            # A.MotionBlur(blur_limit=[13, 17], allow_shifted=False, angle_range=[0, 0], direction_range=[0, 0]),
+            # A.Downscale(scale_range=[0.25, 0.25], interpolation_pair={"upscale":0,"downscale":0}),
         ])
         self.processor = processor
         self.image_filenames = sorted([f for f in os.listdir(self.image_dir) if f.endswith('.jpg')])
@@ -64,6 +64,7 @@ class HorseradishSegmentationDataset(Dataset):
                     polygon_pixels = polygon_normalized * np.array([original_width, original_height])
                     polygon_pixels = polygon_pixels.astype(np.int32)
                     
+
                     # Draw the filled polygon onto the mask
                     cv2.fillPoly(mask, [polygon_pixels], color=mask_value)
 

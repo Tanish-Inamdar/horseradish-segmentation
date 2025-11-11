@@ -194,7 +194,8 @@ def evaluate() -> Dict[str, float]:
         for batch in val_loader:
             pixel_values = batch["pixel_values"].to(device, non_blocking=True)
             labels = batch["labels"].to(device, non_blocking=True)
-            logits = model(pixel_values)
+            outputs = model(pixel_values)
+            logits = outputs[0]
             loss = criterion(logits, labels)
             loss_sum += loss.item() * pixel_values.size(0)
             dice = dice_coefficient(logits, labels, num_classes=NUM_CLASSES)
@@ -270,7 +271,8 @@ if __name__ == '__main__':
             optimizer.zero_grad(set_to_none=True)
 
             with torch.amp.autocast(device_type='cuda', enabled=torch.cuda.is_available()):
-                logits = model(pixel_values)
+                outputs = model(pixel_values)
+                logits = outputs[0]
                 loss = criterion(logits, labels)
 
             scaler.scale(loss).backward()

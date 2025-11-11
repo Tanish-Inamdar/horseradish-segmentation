@@ -139,7 +139,7 @@ if __name__ == "__main__":
     print(f"Average Mean IoU: {avg_iou:.4f}")
 
     print("\nVisualizing some random predictions...")
-    num_examples = min(BATCH_SIZE, 4) 
+    num_examples = min(BATCH_SIZE, 2)
 
     vis_batch = next(iter(val_loader))
 
@@ -158,7 +158,7 @@ if __name__ == "__main__":
     vis_images = (pixel_values.cpu() * std) + mean
     vis_images = (vis_images.permute(0, 2, 3, 1).numpy() * 255).astype(np.uint8)
 
-    fig, axes = plt.subplots(num_examples, 3, figsize=(12, num_examples * 2))
+    fig, axes = plt.subplots(num_examples, 3, figsize=(6, num_examples * 2))
     for i in range(num_examples):
         img_pil = Image.fromarray(vis_images[i])
         pred_mask = vis_preds[i]
@@ -166,7 +166,7 @@ if __name__ == "__main__":
         weed_mask_255 = (pred_mask == WEED_CLASS_ID).astype(np.uint8) * 255
         
         # 2. Extract the centroids
-        weed_centroids = extract_weed_centroids(weed_mask_255, min_area_threshold=50) #maybe change min area on testing?
+        weed_centroids = extract_weed_centroids(weed_mask_255, min_area_threshold=100) #maybe change min area on testing?
         
         ###test###
         print(f"Image {i+1}: Found {len(weed_centroids)} weed centroids (normalized x, y, area):")
@@ -206,18 +206,22 @@ if __name__ == "__main__":
         ax.set_title("Input Image")
         ax.axis('off')
         
-        # Column 2: Predicted Segmentation Overlay (Green/Red)
+        
+        # Column 2: Predicted Segmentation Overlay 
         ax = axes[i, 1]
         ax.imshow(overlay)
         ax.set_title("Predicted Overlay")
         ax.axis('off')
 
-        for cX, cY, area in weed_centroids:
-            ax.scatter(cX, cY, color='yellow', marker='o', s=50, linewidth=1.5) 
-            #label text no idea?
-            ax.text(cX + 10, cY + 10, f"{int(area)}", color='yellow', fontsize=6)
 
-        # Column 3: Feature Similarity Map (Input Image + Heatmap Overlay)
+        for norm_cX, norm_cY, area in weed_centroids:
+            # pixel_cX = norm_cX * img_width
+            # pixel_cY = norm_cY * img_height
+            ax.scatter(norm_cX, norm_cY, color='yellow', marker='o', s=50, linewidth=1.5) 
+            #label text no idea?
+            ax.text(norm_cX + 10, norm_cY + 10, f"{int(area)}", color='yellow', fontsize=6)
+
+        # Column 3: Feature Similarity Map
         ax = axes[i, 2] 
         ax.imshow(img_pil) 
         im_current = ax.imshow(
@@ -225,7 +229,6 @@ if __name__ == "__main__":
             alpha=0.6, 
             cmap='inferno',
             interpolation='bicubic',
-            # Use np.min(similarity_map) as vmin is robust, or you could set a baseline, e.g., vmin=0.5
             vmin=np.min(similarity_map), 
             vmax=1.0, # Cosine similarity ranges up to 1.0
             extent=[0, img_pil.size[0], img_pil.size[1], 0] # Map to original pixel space
@@ -249,7 +252,7 @@ if __name__ == "__main__":
             cbar = fig.colorbar(im, ax=axes[:, 2].ravel().tolist(), orientation='vertical', 
                                 fraction=0.046, pad=0.04)
             cbar.set_label('Cosine Similarity (Dense Features)')
-    output_filename = "horseradish_feature_analysis_high_res.png"
+    output_filename = "horseradish_analysis.png"
     plt.savefig(output_filename, dpi=600, bbox_inches='tight')
     print(f"\nSaved high-resolution visualization to {output_filename}")
     plt.show()

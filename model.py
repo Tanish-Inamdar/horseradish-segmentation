@@ -68,11 +68,12 @@ class DinoV3ForSegmentation(nn.Module):
             mode='bilinear',
             align_corners=False
         )        
-        return final_logits, features_2d
-    
-    predicted_mask = torch.argmax(final_logits, dim=1).cpu().numpy()
-    WEED_CLASS_ID = 2  
-    weed_mask = (predicted_mask[0] == WEED_CLASS_ID).astype(np.uint8) * 255
+        return final_logits, features_2d #fix later jsut comment and uncomment :/
+        # return final_logits
+
+    # predicted_mask = torch.argmax(final_logits, dim=1).cpu().numpy()
+    # WEED_CLASS_ID = 2  
+    # weed_mask = (predicted_mask[0] == WEED_CLASS_ID).astype(np.uint8) * 255
 
     def freeze_backbone(self):
         print("Freezing DINOv3 backbone.")
