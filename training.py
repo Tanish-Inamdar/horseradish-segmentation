@@ -96,47 +96,47 @@ val_loader = DataLoader(
     collate_fn=collate_fn,
 )
 
-class CombinedLoss(nn.Module):
-    def __init__(self, smooth=1e-6, num_classes=3, ce_weight=0.5, dice_weight=0.5):
-        super(CombinedLoss, self).__init__()
-        class_weights = torch.tensor([0.1, 0.5, 0.4]).to(device)
-        self.smooth = smooth
-        self.num_classes = num_classes
-        self.ce_weight = ce_weight
-        self.dice_weight = dice_weight
-        self.cross_entropy = nn.CrossEntropyLoss(weight=class_weights)
+# class CombinedLoss(nn.Module):
+#     def __init__(self, smooth=1e-6, num_classes=3, ce_weight=0.5, dice_weight=0.5):
+#         super(CombinedLoss, self).__init__()
+#         class_weights = torch.tensor([0.1, 0.5, 0.4]).to(device)
+#         self.smooth = smooth
+#         self.num_classes = num_classes
+#         self.ce_weight = ce_weight
+#         self.dice_weight = dice_weight
+#         self.cross_entropy = nn.CrossEntropyLoss(weight=class_weights)
 
-    def forward(self, inputs, targets):
-        ce_loss = self.cross_entropy(inputs, targets)
-        inputs_softmax = F.softmax(inputs, dim=1)
-        targets_one_hot = F.one_hot(targets, num_classes=self.num_classes).permute(0, 3, 1, 2).float()
-        intersection = (inputs_softmax * targets_one_hot).sum()
-        total_pixels = inputs_softmax.sum() + targets_one_hot.sum()
-        dice = (2. * intersection + self.smooth) / (total_pixels + self.smooth)
-        dice_loss = 1 - dice
-        return (self.ce_weight * ce_loss) + (self.dice_weight * dice_loss)
+#     def forward(self, inputs, targets):
+#         ce_loss = self.cross_entropy(inputs, targets)
+#         inputs_softmax = F.softmax(inputs, dim=1)
+#         targets_one_hot = F.one_hot(targets, num_classes=self.num_classes).permute(0, 3, 1, 2).float()
+#         intersection = (inputs_softmax * targets_one_hot).sum()
+#         total_pixels = inputs_softmax.sum() + targets_one_hot.sum()
+#         dice = (2. * intersection + self.smooth) / (total_pixels + self.smooth)
+#         dice_loss = 1 - dice
+#         return (self.ce_weight * ce_loss) + (self.dice_weight * dice_loss)
     
-class FocalTverskyLoss(nn.Module):
-    def __init__(self, alpha=0.7, beta=0.3, gamma=4/3, smooth=1e-6):
-        super(FocalTverskyLoss, self).__init__()
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
-        self.smooth = smooth
+# class FocalTverskyLoss(nn.Module):
+#     def __init__(self, alpha=0.7, beta=0.3, gamma=4/3, smooth=1e-6):
+#         super(FocalTverskyLoss, self).__init__()
+#         self.alpha = alpha
+#         self.beta = beta
+#         self.gamma = gamma
+#         self.smooth = smooth
 
-    def forward(self, inputs, targets):
-        inputs = F.softmax(inputs, dim=1)
-        targets_one_hot = F.one_hot(targets, num_classes=inputs.shape[1]).permute(0, 3, 1, 2).float()
+#     def forward(self, inputs, targets):
+#         inputs = F.softmax(inputs, dim=1)
+#         targets_one_hot = F.one_hot(targets, num_classes=inputs.shape[1]).permute(0, 3, 1, 2).float()
 
-        # True Positives, False Positives & False Negatives
-        TP = (inputs * targets_one_hot).sum()
-        FP = ((1 - targets_one_hot) * inputs).sum()
-        FN = (targets_one_hot * (1 - inputs)).sum()
+#         # True Positives, False Positives & False Negatives
+#         TP = (inputs * targets_one_hot).sum()
+#         FP = ((1 - targets_one_hot) * inputs).sum()
+#         FN = (targets_one_hot * (1 - inputs)).sum()
 
-        Tversky = (TP + self.smooth) / (TP + self.alpha * FN + self.beta * FP + self.smooth)
-        FocalTversky = (1 - Tversky)**self.gamma
+#         Tversky = (TP + self.smooth) / (TP + self.alpha * FN + self.beta * FP + self.smooth)
+#         FocalTversky = (1 - Tversky)**self.gamma
 
-        return FocalTversky
+#         return FocalTversky
     
 class CombinedLoss2(nn.Module):
     def __init__(self, smooth=1e-6, num_classes=3, ce_weight=0.5, dice_weight=0.5):
