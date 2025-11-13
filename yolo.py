@@ -1,32 +1,76 @@
+import os
+import torch
 import lightly_train
-from ultralytics import settings
+from ultralytics import YOLO
 
-#i don't belive useful for my own data
-# from ultralytics.data.utils import check_det_dataset
-# dataset = check_det_dataset=("/home/tanishi2/ag group/horseradish-segmentation/WeedDataset.yaml")
+TEACHER_MODEL_CLASS = "model.py:DinoV3ForSegmentation"
+TEACHER_WEIGHTS_PATH = "/home/tanishi2/ag group/horseradish-segmentation/weights/model_best.pt"
+TEACHER_MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
+NUM_CLASSES = 3
+STUDENT_MODEL_YAML = "ultralytics/yolov8n-seg.yaml"
 
-data_path  = f"{settings['datasets_dir']}/home/tanishi2/ag group/dataset/train"
+DATASET_YAML_PATH = "/home/tanishi2/ag group/dataset/train/WeedDataset.yaml"
+#home: 
+# DATASET_YAML_PATH = "/home/tanishi2/ag group/dataset/train/data.yaml"
 
-
-
-
-# TO DO: 
-# Compare my model weight(if this even works w/ dinov3) with meta weights
-# 
-#
+BATCH_SIZE = 6
+NUM_WORKERS = 3
+OUTPUT_DIR = "out/yolov8n_dinov3_distilled" 
+EXPERIMENT_NAME = "horseradish_distillation_v1"
 
 if __name__ == "__main__":
-    # Distill the pretrained DINOv2 model to a ResNet-18 student model.
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+    print(f"--- Starting Knowledge Distillation ---")
+    print(f"  Teacher Model: {TEACHER_MODEL_CLASS}")
+    print(f"  Teacher Weights: {TEACHER_WEIGHTS_PATH}")
+    print(f"  Student Model: {STUDENT_MODEL_YAML}")
+    print(f"  Dataset: {DATASET_YAML_PATH}")
+    
     lightly_train.train(
-        out="out/my_distillation_pretrain_experiment",
-        data=data_path,
-        model="ultralytics/yolov8n-seg.yaml",
+        out=OUTPUT_DIR,
+        experiment_name=EXPERIMENT_NAME,
+        data=DATASET_YAML_PATH,
+        model=STUDENT_MODEL_YAML,
+        trainer={
+            "max_epochs": 100,
+            "accelerator": "gpu" if torch.cuda.is_available() else "cpu",
+            "devices": 1,
+        },
         method="distillation",
         method_args={
-            "teacher": "dinov3/vitb16",
-            "teacher_weights": "/home/tanishi2/ag group/horseradish-segmentation/weights/model_best.pt", # pretrained `dinov2/vitb14` weights 
-        }
+            "teacher": TEACHER_MODEL_CLASS,
+            "teacher_weights": TEACHER_WEIGHTS_PATH,
+            "teacher_args": {
+                "model_name": TEACHER_MODEL_NAME,
+                "num_classes": NUM_CLASSES
+            },
+            
+            "distill_loss_weight": 1.0, # should trust teacher model
+            "task_loss_weight": 1.0,    # should trust annotated file 
+        },
+        loader={
+            "batch_size": BATCH_SIZE,
+            "num_workers": NUM_WORKERS,
+        },
+        #optimizer taken from Abhinav paper am not hypertuning currently try with lightly default
+        # optimizer={ 
+        #     "name": "AdamW",
+        #     "lr": 1e-4,
+        #     "weight_decay": 1e-5,
+        # },
     )
 
-    model = YOLO("/home/tanishi2/ag group/horseradish-segmentation/weights/dinov3_model_trained.pt")
-    model.train(data_path, epochs=100)
+    print(f"--- Distillation Complete! ---")
+    print(f"Your trained YOLOv8 student model is saved in:")
+    print(f"{OUTPUT_DIR}/{EXPERIMENT_NAME}/weights/best.pt")
+    print(f"--------------------------------")
+    trained_student_model = YOLO(f"{OUTPUT_DIR}/{EXPERIMENT_NAME}/weights/best.pt")
+    
+    #Run validation
+    metrics = trained_student_model.val()
+    print(metrics)
+
+    #Run inference
+    results = trained_student_model.predict("/path/to/new_image.jpg")
+    print(results)
