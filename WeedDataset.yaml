@@ -1,9 +1,18 @@
-path: "/home/tanishi2/ag group/dataset"
-train: "/home/tanishi2/ag group/dataset/train"
-val: "/home/tanishi2/ag group/dataset/val"
+# path: "/home/tanishi2/ag group/dataset"
+# train: "/home/tanishi2/ag group/dataset/train"
+# val: "/home/tanishi2/ag group/dataset/val"
 
-# Classes
+# # Classes
+# names:
+#   0: background
+#   1: plants
+#   2: weeds
+path: /home/tanishi2/ag group/dataset 
+train: train/images
+val: val/images
+labels:
+  train: train/pseudo_labels
+  val: val/labels             
 names:
-  0: background
-  1: plants
-  2: weeds
+  0: horseradish
+  1: weed

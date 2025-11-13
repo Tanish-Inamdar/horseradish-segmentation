@@ -42,13 +42,13 @@ if __name__ == "__main__":
         method_args={
             "teacher": TEACHER_MODEL_CLASS,
             "teacher_weights": TEACHER_WEIGHTS_PATH,
-            "teacher_args": {
-                "model_name": TEACHER_MODEL_NAME,
-                "num_classes": NUM_CLASSES
-            },
+            # "teacher_args": {
+            #     "model_name": TEACHER_MODEL_NAME,
+            #     "num_classes": NUM_CLASSES
+            # },
             
-            "distill_loss_weight": 1.0, # should trust teacher model
-            "task_loss_weight": 1.0,    # should trust annotated file 
+            # "distill_loss_weight": 1.0, # should trust teacher model
+            # "task_loss_weight": 1.0,    # should trust annotated file 
         },
         loader_args={
             "batch_size": BATCH_SIZE,
