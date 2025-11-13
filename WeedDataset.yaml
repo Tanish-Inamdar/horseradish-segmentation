@@ -1,0 +1,9 @@
+path: "/home/tanishi2/ag group/dataset"
+train: "/home/tanishi2/ag group/dataset/train"
+val: "/home/tanishi2/ag group/dataset/val"
+
+# Classes
+names:
+  0: background
+  1: plants
+  2: weeds

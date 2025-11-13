@@ -9,7 +9,8 @@ TEACHER_MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
 NUM_CLASSES = 3
 STUDENT_MODEL_YAML = "ultralytics/yolov8n-seg.yaml"
 
-DATASET_YAML_PATH = "/home/tanishi2/ag group/dataset/train/WeedDataset.yaml"
+DATASET_YAML_CONFIG = "/home/tanishi2/ag group/horseradish-segmentation/WeedDataset.yaml" # KEEP FOR REFERENCE
+DATASET_ROOT_PATH = "/home/tanishi2/ag group/dataset" # NEW
 #home: 
 # DATASET_YAML_PATH = "/home/tanishi2/ag group/dataset/train/data.yaml"
 
@@ -21,18 +22,18 @@ EXPERIMENT_NAME = "horseradish_distillation_v1"
 if __name__ == "__main__":
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    print(f"--- Starting Knowledge Distillation ---")
+    print(f"distiallation training")
     print(f"  Teacher Model: {TEACHER_MODEL_CLASS}")
     print(f"  Teacher Weights: {TEACHER_WEIGHTS_PATH}")
     print(f"  Student Model: {STUDENT_MODEL_YAML}")
-    print(f"  Dataset: {DATASET_YAML_PATH}")
+    print(f"  Dataset: {DATASET_ROOT_PATH}")
     
     lightly_train.train(
         out=OUTPUT_DIR,
-        experiment_name=EXPERIMENT_NAME,
-        data=DATASET_YAML_PATH,
+        # experiment_name=EXPERIMENT_NAME,
+        data=DATASET_ROOT_PATH,
         model=STUDENT_MODEL_YAML,
-        trainer={
+        trainer_args={
             "max_epochs": 100,
             "accelerator": "gpu" if torch.cuda.is_available() else "cpu",
             "devices": 1,
@@ -49,10 +50,11 @@ if __name__ == "__main__":
             "distill_loss_weight": 1.0, # should trust teacher model
             "task_loss_weight": 1.0,    # should trust annotated file 
         },
-        loader={
+        loader_args={
             "batch_size": BATCH_SIZE,
             "num_workers": NUM_WORKERS,
         },
+        overwrite=True
         #optimizer taken from Abhinav paper am not hypertuning currently try with lightly default
         # optimizer={ 
         #     "name": "AdamW",
