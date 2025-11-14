@@ -7,7 +7,7 @@ from tqdm import tqdm
 from model import DinoV3ForSegmentation
 from transformers import AutoImageProcessor
 
-CKPT_PATH = "./weights/dinov3_model_trained.pt"
+CKPT_PATH = "/home/tanishi2/ag group/horseradish-segmentation/weights/dinov3_model_trained.pt"
 MODEL_NAME = "facebook/dinov3-convnext-large-pretrain-lvd1689m"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

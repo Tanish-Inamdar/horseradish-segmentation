@@ -55,7 +55,7 @@ freeze_backbone = True
 model = DinoV3ForSegmentation(model_name=MODEL_NAME, num_classes=NUM_CLASSES)
 model.to(device)
 BATCH_SIZE = 6
-NUM_WORKERS = 4
+NUM_WORKERS = 3
 # NUM_WORKERS = 0
 EPOCHS = 600
 HEAD_LR = 5e-4
@@ -207,7 +207,7 @@ def evaluate() -> Dict[str, float]:
 
 ### TRAINING SCRIPT ###
 if __name__ == '__main__':
-    CKPT_PATH = os.path.join(CHECKPOINT_DIR, "model_best.pt")
+    CKPT_PATH = os.path.join(CHECKPOINT_DIR, "best_model.pt")
     start_epoch = 1
     best_acc = 0.0
     optimizer = None
@@ -235,7 +235,8 @@ if __name__ == '__main__':
         # No checkpoint, start from scratch
         print("No checkpoint found. Starting training from scratch.")
         model.freeze_backbone()
-        optimizer = torch.optim.AdamW(model.decoder_head.parameters(), lr=HEAD_LR, weight_decay=WEIGHT_DECAY)    
+        optimizer = torch.optim.AdamW(model.decoder_head.parameters(), lr=HEAD_LR, weight_decay=WEIGHT_DECAY) 
+        # optimizer = torch.optim.AdamW(model.classifier.parameters(), lr=HEAD_LR, weight_decay=WEIGHT_DECAY) 
     
     if start_epoch >= UNFREEZE_AT_EPOCH:
         scheduler = ReduceLROnPlateau(
