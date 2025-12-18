@@ -11,7 +11,7 @@ path: /home/tanishi2/ag group/dataset
 train: train/images
 val: val/images
 labels:
-  train: train/pseudo_labels
+  train: train/pseudo_labels3
   val: val/labels             
 names:
   0: horseradish

@@ -41,7 +41,7 @@ class HorseradishSegmentationDataset(Dataset):
         image_name = self.image_filenames[idx]
         image_path = os.path.join(self.image_dir, image_name)
         label_name = os.path.splitext(image_name)[0] + '.txt'
-        label_path = os.path.join(self.label_dir, label_name)
+        label_path = os.path.join(self.label_dir, label_name) #
         image_pil = Image.open(image_path).convert("RGB")
         original_width, original_height = image_pil.size
         image = Image.open(image_path).convert("RGB")

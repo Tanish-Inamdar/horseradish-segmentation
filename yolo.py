@@ -77,26 +77,35 @@
 #     results = trained_student_model.predict("/path/to/new_image.jpg")
 #     print(results)
 
+import os
 from ultralytics import YOLO
 
-STUDENT_MODEL_YAML = "yolov8n-seg.yaml" 
-
+STUDENT_MODEL_YAML = "yolov8m-seg.yaml" 
 DATASET_YAML_PATH = "/home/tanishi2/ag group/horseradish-segmentation/WeedDataset.yaml"
 
-EPOCHS = 100 
-BATCH_SIZE = 16
+EPOCHS = 200
+BATCH_SIZE = 8
 NUM_WORKERS = 4
 PROJECT_NAME = "YOLO_Distilled_Training"
-EXPERIMENT_NAME = "yolov8n_from_dinov3_teacher"
-
+EXPERIMENT_NAME = "yolov8m_from_dinov3_teacher200epochs"
 
 if __name__ == "__main__":
-    print(f"--- Starting YOLOv8 Training with Pseudo-Labels ---")
-    print(f"  Student Model: {STUDENT_MODEL_YAML}")
-    print(f"  Dataset Config: {DATASET_YAML_PATH}")
+    checkpoint_path = os.path.join(PROJECT_NAME, EXPERIMENT_NAME, "weights", "last.pt")
+    
+    if os.path.exists(checkpoint_path):
+        print(f"--- Found checkpoint at {checkpoint_path} ---")
+        print(f"--- Resuming training from last saved epoch... ---")
+        model = YOLO(checkpoint_path)
+        resume_training = True
+    else:
+        print(f"--- No checkpoint found. Starting fresh training... ---")
+        print(f"  Student Model: {STUDENT_MODEL_YAML}")
+        print(f"  Dataset Config: {DATASET_YAML_PATH}")
+        model = YOLO(STUDENT_MODEL_YAML)
+        resume_training = False
+
     print(f"---------------------------------------------------")
 
-    model = YOLO(STUDENT_MODEL_YAML)
     model.train(
         data=DATASET_YAML_PATH,
         epochs=EPOCHS,
@@ -104,7 +113,11 @@ if __name__ == "__main__":
         workers=NUM_WORKERS,
         project=PROJECT_NAME,
         name=EXPERIMENT_NAME,
-        imgsz=640 # Standard YOLO training size
+        imgsz=640,
+        
+        # New arguments for saving and resuming
+        resume=resume_training,  # Tells YOLO to pick up where it left off
+        exist_ok=True            # Allows writing into the existing experiment folder
     )
     
     print(f"\n--- YOLOv8 Training Complete! ---")
